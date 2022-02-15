@@ -26,7 +26,7 @@ Pinf = colorTransferFull(P1,P2,P3,P4,lambda, eta);
 %%
 figure(1)
 montage({reshape(uint8(Pr3*256),n,n,3),reshape(uint8(Pr5*256),n,n,3),reshape(uint8(Pr10*256),n,n,3),reshape(uint8(Pr50*256),n,n,3),reshape(uint8(Pinf*256),n,n,3)},'size',[1 NaN])
-print -depsc 'figures/PicturesRanks'
+%print -depsc 'figures/PicturesRanks'
 
 %% error plot for different ranks
 errRanks(1) = norm(Pr3-Pinf,'inf');
