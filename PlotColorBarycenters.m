@@ -1,4 +1,4 @@
-%% Code to reproduce the experiment in the section generalized color transfer (arxiv version)
+%% Code to reproduce the experiment in the section generalized color transfer 
 % YOU NEED TO MANUALLY PROVIDE JPG FILES AS SPECIFIED IN getPictures.m
 addpath('Functions')
 getPictures();
@@ -13,6 +13,7 @@ P1 = X1; P2 = X2; P3 = X3; P4 = X4; eta = 0.1;
 
 %% plot for different ranks
 lambda = [1,1,1];
+Pr50 = colorTransfer(P1,P2,P3,P4,lambda,eta,50);
 Pr3 = colorTransfer(P1,P2,P3,P4,lambda,eta,3);
 Pr4 = colorTransfer(P1,P2,P3,P4,lambda,eta,5);
 Pr5 = colorTransfer(P1,P2,P3,P4,lambda,eta,5);
@@ -20,13 +21,12 @@ Pr10 = colorTransfer(P1,P2,P3,P4,lambda,eta,10);
 Pr15 = colorTransfer(P1,P2,P3,P4,lambda,eta,15);
 Pr20 = colorTransfer(P1,P2,P3,P4,lambda,eta,20);
 Pr30 = colorTransfer(P1,P2,P3,P4,lambda,eta,30);
-Pr50 = colorTransfer(P1,P2,P3,P4,lambda,eta,50);
 Pinf = colorTransferFull(P1,P2,P3,P4,lambda, eta);
 
 %%
 figure(1)
 montage({reshape(uint8(Pr3*256),n,n,3),reshape(uint8(Pr5*256),n,n,3),reshape(uint8(Pr10*256),n,n,3),reshape(uint8(Pr50*256),n,n,3),reshape(uint8(Pinf*256),n,n,3)},'size',[1 NaN])
-%print -depsc 'figures/PicturesRanks'
+%print -depsc 'figures/PicturesBarycenterRanks'
 
 %% error plot for different ranks
 errRanks(1) = norm(Pr3-Pinf,'inf');
@@ -43,7 +43,7 @@ set(figure(2), 'Position', [0 0 150 150])
 semilogy([3,5,10,15,20,30,50],errRanks)
 xlabel('$r$','interpreter','latex')
 ylabel('$|| \tilde{x}^{r}-\tilde{x}^{*}||_{\infty}$','interpreter','latex')
-%print -depsc 'figures/PicturesRanksDecay'
+%print -depsc 'figures/PicturesBarycenterRanksDecay'
 
 %% plot different lambda with rank 10
 PA = colorTransfer(P1,P2,P3,P4,[1,0,0],eta,50);
@@ -56,7 +56,7 @@ figure(3)
 montage({reshape(uint8(P1*256),n,n,3),reshape(uint8(P2*256),n,n,3),reshape(uint8(P3*256),n,n,3),...
     reshape(uint8(PA*256),n,n,3),reshape(uint8(PB*256),n,n,3),reshape(uint8(PC*256),n,n,3),...
     reshape(uint8(PD*256),n,n,3),reshape(uint8(PE*256),n,n,3),reshape(uint8(P4*256),n,n,3)},'size',[3, 3])
-%print -depsc 'figures/PicturesLambdas'
+%print -depsc 'figures/PicturesBarycenterLambdas'
 
 %% runtime analysis
 lambda = [1,1,1];
@@ -73,23 +73,26 @@ function P = colorTransfer(P1,P2,P3,P4,lambda, eta, r)
 lambda = lambda/sum(lambda);
 n = sqrt(size(P1,1));
 
+%find Barycenter locations
+PB = lambda(1)*P1+lambda(2)*P2+lambda(3)*P3;
+
 % assemble pairwise cost matrices
 C14 = zeros(n^2);
 for i = 1:n^2
     for j = 1:n^2
-        C14(i,j) = norm(P1(i,:)-P4(j,:))^2;
+        C14(i,j) = norm(P1(i,:)-PB(j,:))^2;
     end
 end
 C24 = zeros(n^2);
 for i = 1:n^2
     for j = 1:n^2
-        C24(i,j) = norm(P2(i,:)-P4(j,:))^2;
+        C24(i,j) = norm(P2(i,:)-PB(j,:))^2;
     end
 end
 C34 = zeros(n^2);
 for i = 1:n^2
     for j = 1:n^2
-        C34(i,j) = norm(P3(i,:)-P4(j,:))^2;
+        C34(i,j) = norm(P3(i,:)-PB(j,:))^2;
     end
 end
 
@@ -112,36 +115,59 @@ K34 = exp(-C34/eta);
 a = ones(n^2,1);
 b = ones(n^2,1);
 c = ones(n^2,1);
-d = ones(n^2,1);
 
-% solve with MMSinkhorn
-[x1, x2, x3, x4, err, usedIters, success] = MMSinkhorn4StarLR(U14,V14,U24,V24,U34,V34, a, b, c, d, 1000,1e-4);
+% find density of Barycenterpoints
+[d] = MMSinkhorn4BarycentersLineGraphLR(U14,V14,U24,V24,U34,V34, a, b, c, 1000,1e-4);
 
 % get new vector
-P = evaluateNewPixelValues(U14,V14,U24,V24,U34,V34,x1,x2,x3,x4,P1,P2,P3,lambda);
+P = evaluateNewPixelValues(P4,PB,d,r,eta);
 end
 
+function [X] = evaluateNewPixelValues(P4,PB,d,r,eta)
+n = sqrt(size(P4,1));
+
+% assemble pairwise cost matrices
+C = zeros(n^2);
+for i = 1:n^2
+    for j = 1:n^2
+        C(i,j) = norm(PB(i,:)-P4(j,:))^2;
+    end
+end
+K = exp(-C/eta);
+[U,V] = randSVD(K,r);
+
+% solve two marginal problem
+[x1,x2] = MMSinkhorn2LR(U, V, d, ones(n^2,1), 1000, 1e-4);
+
+x1 = exp(x1); x2 = exp(x2); 
+X = real(((((PB.*x1)'*U)*V))'.*repmat(x2,1,3));
+end
+
+%% functions full
 function P = colorTransferFull(P1,P2,P3,P4,lambda, eta)
 lambda = lambda/sum(lambda);
 n = sqrt(size(P1,1));
+
+%find Barycenter locations
+PB = lambda(1)*P1+lambda(2)*P2+lambda(3)*P3;
 
 % assemble pairwise cost matrices
 C14 = zeros(n^2);
 for i = 1:n^2
     for j = 1:n^2
-        C14(i,j) = norm(P1(i,:)-P4(j,:))^2;
+        C14(i,j) = norm(P1(i,:)-PB(j,:))^2;
     end
 end
 C24 = zeros(n^2);
 for i = 1:n^2
     for j = 1:n^2
-        C24(i,j) = norm(P2(i,:)-P4(j,:))^2;
+        C24(i,j) = norm(P2(i,:)-PB(j,:))^2;
     end
 end
 C34 = zeros(n^2);
 for i = 1:n^2
     for j = 1:n^2
-        C34(i,j) = norm(P3(i,:)-P4(j,:))^2;
+        C34(i,j) = norm(P3(i,:)-PB(j,:))^2;
     end
 end
 
@@ -155,44 +181,46 @@ K14 = exp(-C14/eta);
 K24 = exp(-C24/eta);
 K34 = exp(-C34/eta);
 
-% use full tensors
-U14 = K14; V14 = speye(n^2);
-U24 = K24; V24 = speye(n^2);
-U34 = K34; V34 = speye(n^2);
+% low-rank approximation via randomized SVD
+U14 = K14;
+U24 = K24;
+U34 = K34;
+V14 = speye(size(U14));
+V24 = speye(size(U24));
+V34 = speye(size(U34));
 
 % marginals
 a = ones(n^2,1);
 b = ones(n^2,1);
 c = ones(n^2,1);
-d = ones(n^2,1);
 
-% solve with MMSinkhorn
-[x1, x2, x3, x4, err, usedIters, success] = MMSinkhorn4StarLR(U14,V14,U24,V24,U34,V34, a, b, c, d, 1000,1e-4);
+% find density of Barycenterpoints
+[d] = MMSinkhorn4BarycentersLineGraphLR(U14,V14,U24,V24,U34,V34, a, b, c, 1000,1e-4);
 
 % get new vector
-P = evaluateNewPixelValues(U14,V14,U24,V24,U34,V34,x1,x2,x3,x4,P1,P2,P3,lambda);
+P = evaluateNewPixelValuesFull(P4,PB,d,eta);
 end
 
+function [X] = evaluateNewPixelValuesFull(P4,PB,d,eta)
+n = sqrt(size(P4,1));
 
-function [X] = evaluateNewPixelValues(U14,V14,U24,V24,U34,V34,x1,x2,x3,x4,P1,P2,P3,lambda)
-x1 = exp(x1); x2 = exp(x2); x3 =exp(x3); x4 = exp(x4);
-
-K14 = U14*V14;
-K24 = U24*V24;
-K34 = U34*V34;
-
-V1 = x1'*K14;
-V2 = x2'*K24;
-V3 = x3'*K34;
-V1 = repmat(V1,3,1);
-V2 = repmat(V2,3,1);
-V3 = repmat(V3,3,1);
-V4 = repmat(x4,1,3);
-
-X = (((lambda(1)*P1.*x1)'*K14).*V2.*V3)'.*V4;
-X = X + (((lambda(2)*P2.*x2)'*K24).*V1.*V3)'.*V4;
-X = X + (((lambda(3)*P3.*x3)'*K34).*V1.*V2)'.*V4;
-X = real(X);
+% assemble pairwise cost matrices
+C = zeros(n^2);
+for i = 1:n^2
+    for j = 1:n^2
+        C(i,j) = norm(PB(i,:)-P4(j,:))^2;
+    end
 end
+K = exp(-C/eta);
+U = K;
+V = speye(size(K));
+
+% solve two marginal problem
+[x1,x2] = MMSinkhorn2LR(U, V, d, ones(n^2,1), 1000, 1e-4);
+
+x1 = exp(x1); x2 = exp(x2); 
+X = real(((((PB.*x1)'*U)*V))'.*repmat(x2,1,3));
+end
+
 
 

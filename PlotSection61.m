@@ -75,6 +75,12 @@ for i = 2:numel(rvec)
         estLogErr = max(estLogErr,abs(log(val)-log(valSVDs)));
     end
     estLogErrSVDs(i) = estLogErr;
+    
+    % evaluate the theoretical error bound for the entropic cost function
+    elog = estLogErr; %only estimation available
+    estop = 1e-4;
+    Cnorm = max(max(abs(C12)+abs(C23)+abs(C34))); %only upper bound available
+    boundSVDs(i) = 1*(elog*(2+log(2/elog))+elog/2*log(420^4-1)+2*estop*log(1/estop*(420^4-1)))+(elog+2*estop)*Cnorm;
 end
 timeSVDs = mean(timeSVDs,2)
 
@@ -110,6 +116,12 @@ for i = 1:numel(rvecTT)
         estLogErr = max(estLogErr,abs(log(val)-log(valTTSVDs)));
     end
     estLogErrTTsvd(i) = estLogErr;
+    
+    % evalutate the theoretical error bound for the entropic cost function
+    elog = estLogErr; %only estimation available
+    estop = 1e-4;
+    Cnorm = max(max(abs(C12)+abs(C23)+abs(C34))); %only upper bound available
+    boundTT(i) = 1*(elog*(2+log(2/elog))+elog/2*log(420^4-1)+2*estop*log(1/estop*(420^4-1)))+(elog+2*estop)*Cnorm;
 end
 timeTT = mean(timeTT,2);
 
@@ -122,11 +134,14 @@ semilogy(rvecTT,abs(costTT-costDirect),'r'); hold on
 semilogy(rvecTT,abs(costSVDs(1,1:numel(rvecTT))-costDirect),'b');
 semilogy(rvecTT,estLogErrTTsvd,'r:');
 semilogy(rvecTT,estLogErrSVDs(1:numel(rvecTT)),'b:');
+%semilogy(rvecTT,boundSVDs(1:numel(rvecTT)),'r--');
+%semilogy(rvecTT,boundTT(1:numel(rvecTT)),'b--');
 leg = legend(...
     '$| \langle \mathcal{C} , \mathcal{P}_{\textsf{TT}} \rangle - \langle \mathcal{C} , \mathcal{P} \rangle  | $',...
     '$|\langle \mathcal{C} , \mathcal{P}_{\textsf{SVDs}} \rangle - \langle \mathcal{C} , \mathcal{P} \rangle  | $',...
     '$||\log(\mathcal{K}_{\textsf{TT}}) - \log(\mathcal{K}) ||_\infty$',...
-    '$||\log(\mathcal{K}_{\textsf{SVDs}}) - \log(\mathcal{K}) ||_\infty$');
+    '$||\log(\mathcal{K}_{\textsf{SVDs}}) - \log(\mathcal{K}) ||_\infty$'...
+);
 set(leg,'Interpreter','latex');
 xlabel('$r$','interpreter','latex')
 xlim([2,rvecTT(end)])
