@@ -7,4 +7,4 @@ To run the experiments you need to additionally download:
 
 You need to manually add the TT toolbox to the MATLAB path and run its setup script. The Folder with the images needs to be added to the MATLAB path manually.
 
-The script PlotSection61 reproduces all plots in Section 6.1. of the article. The script plotColorTransfer reproduces all results for the color transfer example. 
+The script PlotSection61 reproduces all plots in Section 6.1. of the article. The script PlotColorTransfer reproduces all results for the color transfer example in the arxiv version. The scripts PlotSchoedingerBridges and PlotColorBarycenters reproduce the figures in the revised version.
