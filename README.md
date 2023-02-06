@@ -1,5 +1,6 @@
 Code to reproduce the figures in "Low-rank tensor approximations for solving multi-marginal optimal transport problems" by C. Strössner and D. Kressner.
-(Arxiv: https://arxiv.org/abs/2202.07340)
+
+(SIAM J. Imaging Sci. 2023 16:1, 69-191 https://doi.org/10.1137/22M1478355, Arxiv: https://arxiv.org/abs/2202.07340)
 
 To run the experiments you need to additionally download:
 - the TT toolbox (https://github.com/oseledets/TT-Toolbox) for the comparison to the TT Approximation
